@@ -12,3 +12,9 @@ to run > python prime_run.py
 
 in mode 0, set signal USR1 to process to dump the latest number
  kill -USR1 PID
+
+# This program utilize Nvidia GPU so the conda environment need to be installed and set up
+# set up conda
+
+conda info --env
+conda activate numba-cuda
