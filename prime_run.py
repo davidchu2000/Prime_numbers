@@ -18,7 +18,7 @@ MODE = 0
 START = 20
 
 # How many numbers processed per GPU batch
-BATCH_SIZE = 10_000_000
+BATCH_SIZE = 500_000_000
 
 THREADS_PER_BLOCK = 256
 
@@ -39,22 +39,25 @@ def mark_primes(start, results):
         results[i] = 0
         return
 
-    if n == 2:
+    if n == 2 or n == 3:
         results[i] = 1
         return
 
-    if n % 2 == 0:
+    if n < 2 or n % 2 == 0 or n % 3 == 0:
         results[i] = 0
         return
 
     limit = int(math.sqrt(n))
 
-    d = 3
+    d = 5
     while d <= limit:
         if n % d == 0:
             results[i] = 0
             return
-        d += 2
+        if d + 2 <= limit and n % (d + 2) == 0:
+            results[i] = 0
+            return
+        d += 6
 
     results[i] = 1
 
@@ -64,10 +67,21 @@ def beep():
     print("\a", end="", flush=True)
 
 def handle_status(signum, frame):
+    global current_checked
+    elapsed = time.time() - start_time
+
+    if current_checked > 0:
+        density = prime_count / current_checked
+        rate = current_checked / elapsed
+    else:
+        density = 0
+        rate = 0
+
     print(
-        f"\n[STATUS] checked through {current_checked:,}, "
+            f"\n[STATUS] {elapsed:.2f} checked through {current_checked:,}, "
         f"total primes = {prime_count} ",
-        f"density = {prime_count/latest_prime:.4f} ",
+        f"density = {density:.4f} ",
+        f"Rate={rate:,.0f}/sec  "
         f"latest prime = {latest_prime}\n",
         flush=True
     )
@@ -75,6 +89,7 @@ def handle_status(signum, frame):
 def process_batch(start_number):
     global latest_prime
     global prime_count
+    global current_checked
 
     results = np.zeros(BATCH_SIZE, dtype=np.int32)
     d_results = cuda.to_device(results)
@@ -83,6 +98,8 @@ def process_batch(start_number):
     mark_primes[blocks, THREADS_PER_BLOCK](start_number, d_results)
 
     results = d_results.copy_to_host()
+
+    current_checked = start_number + BATCH_SIZE - 1
 
     prime_indices = np.where(results == 1)[0]
 
@@ -102,11 +119,14 @@ def process_batch(start_number):
 
 
 def main():
-    global current_checked
     signal.signal(signal.SIGUSR1, handle_status)
     current = START
+    global start_time;
+    start_time = time.time();
 
+    print(f"Start Time: {start_time}") 
     print(f"Process ID: {os.getpid()}") 
+    print(f"BATCH_SIZE: {BATCH_SIZE}")
     print("GPU Prime Enumerator Started")
     print("Press Ctrl+C to stop.\n")
     print("Send status signal with:")
@@ -115,10 +135,9 @@ def main():
     try:
         while True:
             process_batch(current)
-            current_checked = current + BATCH_SIZE - 1
-            print(f"Processed through {current + BATCH_SIZE:,}")
-
             current += BATCH_SIZE
+            elapsed = time.time() - start_time
+            print(f"{elapsed:.2f} Processed through {current + BATCH_SIZE:,}")
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
