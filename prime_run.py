@@ -134,10 +134,13 @@ def main():
 
     try:
         while True:
+            batch_start = time.time()
             process_batch(current)
+            batch_elapsed = time.time() - batch_start
+            batch_rate = BATCH_SIZE / batch_elapsed
             current += BATCH_SIZE
             elapsed = time.time() - start_time
-            print(f"{elapsed:.2f} Processed through {current + BATCH_SIZE:,}")
+            print(f"{elapsed:.2f} Processed through {current + BATCH_SIZE:,} batch rate = {batch_rate:,.0f}")
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
