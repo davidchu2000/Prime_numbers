@@ -1,0 +1,17 @@
+Start Time: 1780635787.866687
+Process ID: 13057
+BATCH_SIZE: 500000000
+GPU Prime Enumerator Started
+Press Ctrl+C to stop.
+
+Send status signal with:
+kill -USR1 13057
+Resuming from 32,000,000,019
+Checkpoint saved: 32,500,000,019  1,403,463,852 primes
+367.01 Processed through 33,000,000,020 session rate = 1,362,356 batch rate = 1,362,356 density = 0.0432 total primes = 1403463852 latest prime = 32499999977
+Checkpoint saved: 33,000,000,019  1,424,115,481 primes
+748.53 Processed through 33,500,000,020 session rate = 1,335,947 batch rate = 1,310,543 density = 0.0432 total primes = 1424115481 latest prime = 32999999959
+Checkpoint saved: 33,500,000,019  1,444,751,737 primes
+1145.08 Processed through 34,000,000,020 session rate = 1,309,956 batch rate = 1,260,895 density = 0.0431 total primes = 1444751737 latest prime = 33499999993
+Checkpoint saved: 34,000,000,019  1,465,374,653 primes
+1530.22 Processed through 34,500,000,020 session rate = 1,307,004 batch rate = 1,298,225 density = 0.0431 total primes = 1465374653 latest prime = 34000000019
