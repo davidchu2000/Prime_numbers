@@ -4,6 +4,8 @@ from numba import cuda
 import time
 import signal
 import os
+import json
+import os
 
 # =========================================================
 # MODE:
@@ -24,7 +26,13 @@ THREADS_PER_BLOCK = 256
 
 latest_prime = None
 current_checked = 0
-prime_count = 0
+batch_rate = 0
+
+# save check point
+current_checked = 0
+latest_prime = 0
+total_primes = 0
+CHECKPOINT_FILE = "prime_checkpoint.json"
 
 @cuda.jit
 def mark_primes(start, results):
@@ -68,27 +76,27 @@ def beep():
 
 def handle_status(signum, frame):
     global current_checked
+    global batch_rate
     elapsed = time.time() - start_time
 
     if current_checked > 0:
-        density = prime_count / current_checked
-        rate = current_checked / elapsed
+        density = total_primes / current_checked
     else:
         density = 0
-        rate = 0
+        batch_rate = 0
 
     print(
             f"\n[STATUS] {elapsed:.2f} checked through {current_checked:,}, "
-        f"total primes = {prime_count} ",
+        f"total primes = {total_primes} ",
         f"density = {density:.4f} ",
-        f"Rate={rate:,.0f}/sec  "
+        f"batch rate={batch_rate:,.0f}/sec  "
         f"latest prime = {latest_prime}\n",
         flush=True
     )
 
 def process_batch(start_number):
     global latest_prime
-    global prime_count
+    global total_primes 
     global current_checked
 
     results = np.zeros(BATCH_SIZE, dtype=np.int32)
@@ -109,7 +117,7 @@ def process_batch(start_number):
     for i, is_prime in enumerate(results):
         if is_prime:
             n = start_number + i
-            prime_count += 1
+            total_primes += 1
 
             if MODE in (2, 3):
                 print(n)
@@ -118,10 +126,47 @@ def process_batch(start_number):
                 beep()
 
 
+def save_checkpoint():
+    data = {
+        "current_checked": current_checked,
+        "latest_prime": latest_prime,
+        "total_primes": total_primes
+    }
+
+    with open("checkpoint.tmp", "w") as f:
+        json.dump(data, f)
+
+    # make the output atomic
+    os.replace("checkpoint.tmp", CHECKPOINT_FILE)
+    print(
+        f"Checkpoint saved: "
+        f"{current_checked:,}  "
+        f"{total_primes:,} primes",
+        flush=True
+    )
+
+def load_checkpoint():
+    global current_checked
+    global latest_prime
+    global total_primes
+
+    if not os.path.exists(CHECKPOINT_FILE):
+        return False
+
+    with open(CHECKPOINT_FILE) as f:
+        data = json.load(f)
+
+    current_checked = data["current_checked"]
+    latest_prime = data["latest_prime"]
+    total_primes = data["total_primes"]
+
+    return True
+
 def main():
     signal.signal(signal.SIGUSR1, handle_status)
     current = START
     global start_time;
+    global batch_rate;
     start_time = time.time();
 
     print(f"Start Time: {start_time}") 
@@ -132,18 +177,37 @@ def main():
     print("Send status signal with:")
     print(f"kill -USR1 {os.getpid()}")
 
+    # Load check point
+    if load_checkpoint():
+        current = current_checked + 1
+        resume_from = current_checked
+
+        print(
+           f"Resuming from "
+           f"{current_checked:,}"
+        )
+    else:
+        current = START
+        resume_from = current
+
+    run_start_time = time.time()
     try:
         while True:
             batch_start = time.time()
             process_batch(current)
+            save_checkpoint()
             batch_elapsed = time.time() - batch_start
             batch_rate = BATCH_SIZE / batch_elapsed
             current += BATCH_SIZE
-            elapsed = time.time() - start_time
-            print(f"{elapsed:.2f} Processed through {current + BATCH_SIZE:,} batch rate = {batch_rate:,.0f}")
+            elapsed_since_resume = time.time() - run_start_time
+            session_rate = (current_checked - resume_from) / elapsed_since_resume
+            density = total_primes / current_checked
+            print(f"{elapsed_since_resume:.2f} Processed through {current + BATCH_SIZE:,} session rate = {session_rate:,.0f} batch rate = {batch_rate:,.0f} density = {density:.4f} total primes = {total_primes} latest prime = {latest_prime}", flush=True)
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
+        save_checkpoint()
+        print("Checkpoint written.")
 
 
 if __name__ == "__main__":
