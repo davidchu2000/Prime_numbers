@@ -24,14 +24,22 @@ in mode 0, sending signal USR1 to process to dump the latest number
 
 after sending USR1 signal, it will print out the latest progress:
 
-[STATUS] checked through 24,110,000,019, total primes = 1054788835  density = 0.0437  latest prime = 24110000017
+For each batch, save progress status to save point file "prime_checkpoint.json"
+if prime_checkpoint.json exists, it will start from last saved point
+Sending Ctrl-C will also trigger to save the progress to save point file
 
 
 
-example, using size 10,000,000 after 24 hours , generated some prime numbers as
 
-[STATUS] checked through 78,720,000,019, total primes = 3274058375  density = 0.0416  latest prime = 78720000017
-[STATUS] checked through 78,730,000,019, total primes = 3274456578  density = 0.0416  latest prime = 78729999991
-[STATUS] checked through 78,750,000,019, total primes = 3275253164  density = 0.0416  latest prime = 78749999969
-[STATUS] checked through 78,760,000,019, total primes = 3275652236  density = 0.0416  latest prime = 78759999979
-[STATUS] checked through 78,770,000,019, total primes = 3276050737  density = 0.0416  latest prime = 78770000017
+Output log and status example:
+
+Resuming from 22,500,000,019
+Checkpoint saved: 23,000,000,019  1,008,309,536 primes
+252.75 Processed through 23,500,000,020 session rate = 1,978,245 batch rate = 1,978,245 density = 0.0438 total primes = 1008309536 latest prime = 22999999987
+
+[STATUS] 520.99 checked through 23,000,000,019, total primes = 1008309536  density = 0.0438  batch rate=1,978,245/sec  latest prime = 22999999987
+
+Checkpoint saved: 23,500,000,019  1,029,256,462 primes
+546.62 Processed through 24,000,000,020 session rate = 1,829,424 batch rate = 1,701,428 density = 0.0438 total primes = 1029256462 latest prime = 23500000001
+
+[STATUS] 852.56 checked through 23,500,000,019, total primes = 1029256462  density = 0.0438  batch rate=1,701,428/sec  latest prime = 23500000001
