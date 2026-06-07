@@ -14,17 +14,21 @@ import os
 # 2 = only print
 # 3 = print and beep
 # =========================================================
-MODE = 0 
+MODE = 2
 
 # Starting number
 START = 20
+#START = np.int64(10**18)   # 10^18,  1 quintillion , cuda integer max 9.22 × 10^18
+#START = np.int64(9223372036854775807-BATCH_SIZE*2) #max int64 minus 2 BATCH_SIZE:
 
 # How many numbers processed per GPU batch
-BATCH_SIZE = 500_000_000
+BATCH_SIZE = 100_000 
+#BATCH_SIZE = 500_000_000
+#BATCH_SIZE = 100 
+#BATCH_SIZE = 1_000_000
 
 THREADS_PER_BLOCK = 256
 
-latest_prime = None
 current_checked = 0
 batch_rate = 0
 
@@ -69,7 +73,6 @@ def mark_primes(start, results):
 
     results[i] = 1
 
-
 def beep():
     # Terminal beep
     print("\a", end="", flush=True)
@@ -80,7 +83,7 @@ def handle_status(signum, frame):
     elapsed = time.time() - start_time
 
     if current_checked > 0:
-        density = total_primes / current_checked
+        density = total_primes / (current_checked - START)
     else:
         density = 0
         batch_rate = 0
@@ -107,12 +110,14 @@ def process_batch(start_number):
 
     results = d_results.copy_to_host()
 
-    current_checked = start_number + BATCH_SIZE - 1
+    current_checked = int(start_number) + int(BATCH_SIZE) - 1
 
     prime_indices = np.where(results == 1)[0]
 
+    prev_n = latest_prime
+
     if prime_indices.size > 0:
-        latest_prime = start_number + int(prime_indices[-1])
+        latest_prime = int(start_number) + int(prime_indices[-1])
 
     for i, is_prime in enumerate(results):
         if is_prime:
@@ -120,17 +125,22 @@ def process_batch(start_number):
             total_primes += 1
 
             if MODE in (2, 3):
-                print(n)
+                if (n - prev_n) == 2:
+                    print(f"{n} Twin\n")
+                else:
+                    print(n)
 
             if MODE in (1, 3):
                 beep()
 
+            prev_n = n
+
 
 def save_checkpoint():
     data = {
-        "current_checked": current_checked,
-        "latest_prime": latest_prime,
-        "total_primes": total_primes
+        "current_checked": int(current_checked),
+        "latest_prime": int(latest_prime),
+        "total_primes": int(total_primes)
     }
 
     with open("checkpoint.tmp", "w") as f:
@@ -195,14 +205,14 @@ def main():
         while True:
             batch_start = time.time()
             process_batch(current)
-            save_checkpoint()
             batch_elapsed = time.time() - batch_start
             batch_rate = BATCH_SIZE / batch_elapsed
             current += BATCH_SIZE
             elapsed_since_resume = time.time() - run_start_time
             session_rate = (current_checked - resume_from) / elapsed_since_resume
-            density = total_primes / current_checked
-            print(f"{elapsed_since_resume:.2f} Processed through {current + BATCH_SIZE:,} session rate = {session_rate:,.0f} batch rate = {batch_rate:,.0f} density = {density:.4f} total primes = {total_primes} latest prime = {latest_prime}", flush=True)
+            density = total_primes / (current_checked - START)
+            print(f"{elapsed_since_resume:.2f} Processed through {current + BATCH_SIZE:,} session rate = {session_rate:,.2f} batch rate = {batch_rate:,.2f} density = {density:.4f} total primes = {total_primes} latest prime = {latest_prime}", flush=True)
+            save_checkpoint()
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
